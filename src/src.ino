@@ -12,6 +12,9 @@ const int   daylightOffset_sec = 0;  // Adjust if you observe daylight saving
 
 struct tm previousTime;  // Store the previous time snapshot
 
+// Setup switch
+const int SWITCH_PIN = 21;
+
 void setup(){
   Serial.begin(115200);
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Info);  
@@ -48,26 +51,52 @@ void setup(){
     url.begin("http://streaming.fueralle.org:8000/coloradio_160.mp3","audio/mp3");
   }
   previousTime = timeInfo;
+
+  // Enable switch pin
+  pinMode(SWITCH_PIN, INPUT_PULLUP);
 }
 
 void loop(){
   // Section to change stream url for apollo or colo
   struct tm currentTime;
   if(getLocalTime(&currentTime)){
-    
-    // Check for midnight transition: from 23:59 to 00:00
-    if (previousTime.tm_hour == 23 && previousTime.tm_min == 59 &&
+    // Monday tuesday apollo shedule
+    if ((currentTime.tm_wday == 1 || currentTime.tm_wday == 2) && previousTime.tm_hour == 23 && previousTime.tm_min == 59 &&
         currentTime.tm_hour == 0 && currentTime.tm_min == 0) {
       url.begin("https://edge63.radio.apolloradio.de/apollo-radio/stream/mp3?aggregator=smk-m3u-mp3","audio/mp3");
     }
-
-    // Check for noon transition: from 11:59 to 12:00
-    if (previousTime.tm_hour == 11 && previousTime.tm_min == 59 &&
-        currentTime.tm_hour == 12 && currentTime.tm_min == 0) {
+    // Wednesday saturday apollo shedule
+    if ((currentTime.tm_wday >= 3 || currentTime.tm_wday <= 6) && currentTime.tm_wday != 0 &&
+        previousTime.tm_hour == 0 && previousTime.tm_min == 59 &&
+        currentTime.tm_hour == 1 && currentTime.tm_min == 0) {
+      url.begin("https://edge63.radio.apolloradio.de/apollo-radio/stream/mp3?aggregator=smk-m3u-mp3","audio/mp3");
+    }
+    // Sunday apollo shedule
+    if ((currentTime.tm_wday == 0) && previousTime.tm_hour == 1 && 
+        previousTime.tm_min == 59 &&
+        currentTime.tm_hour == 2 && currentTime.tm_min == 0) {
+      url.begin("https://edge63.radio.apolloradio.de/apollo-radio/stream/mp3?aggregator=smk-m3u-mp3","audio/mp3");
+    }
+    // Monday to friday colo shedule
+    if ((currentTime.tm_wday >= 1 || currentTime.tm_wday <= 5) && currentTime.tm_wday != 0 &&
+               previousTime.tm_hour == 11 && previousTime.tm_min == 59 &&
+               currentTime.tm_hour == 12 && currentTime.tm_min == 0) {
+      url.begin("http://streaming.fueralle.org:8000/coloradio_160.mp3","audio/mp3");
+    }
+    // Saturday and suinday colo shedule
+    if ((currentTime.tm_wday == 0 && currentTime.tm_wday == 6) &&
+               previousTime.tm_hour == 7 && previousTime.tm_min == 59 &&
+               currentTime.tm_hour == 8 && currentTime.tm_min == 0) {
       url.begin("http://streaming.fueralle.org:8000/coloradio_160.mp3","audio/mp3");
     }
     // Update previous time with current time
     previousTime = currentTime;
   }
-  copier.copy();
+
+  // Read the state of the switch
+  int switchState = digitalRead(SWITCH_PIN);
+
+  if (switchState == HIGH) {
+    copier.copy();
+  }
 }
